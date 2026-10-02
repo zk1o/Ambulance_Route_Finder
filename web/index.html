@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Ambulance Emergency Route Finder - Live Dashboard</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --text-light: #f8fafc;
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Control Panel */
+        .sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            font-size: 1.25rem;
+            color: var(--accent-red);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        select, input, button {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        button {
+            background-color: var(--accent-blue);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            margin-top: 5px;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        button.btn-danger {
+            background-color: var(--accent-red);
+        }
+
+        button.btn-danger:hover {
+            background-color: #dc2626;
+        }
+
+        /* Main Map View */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .header {
+            background-color: var(--panel-bg);
+            padding: 15px 25px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: var(--accent-green);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border: 1px solid var(--accent-green);
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background-color: #0b0f19;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Results Metrics Bar */
+        .metrics-panel {
+            background-color: var(--panel-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 15px 25px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+        }
+
+        .metric-card {
+            background-color: var(--bg-dark);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-card .title {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .metric-card .value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Left Controls Panel -->
+    <div class="sidebar">
+        <h2>🚑 Dispatch Operations</h2>
+
+        <div class="control-group">
+            <label>Search Algorithm</label>
+            <select id="algo-select">
+                <option value="A*">A* Search (Optimal & Fast)</option>
+                <option value="UCS">Uniform Cost Search (UCS)</option>
+                <option value="BFS">Breadth-First Search (BFS)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Traffic Level</label>
+            <select id="traffic-select">
+                <option value="Low">Low Traffic (1.0x)</option>
+                <option value="Medium" selected>Medium Traffic (1.5x)</option>
+                <option value="Heavy">Heavy Traffic (2.5x)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Blocked Road Edge</label>
+            <select id="blocked-select">
+                <option value="None">None (All Roads Open)</option>
+                <option value="Node_3-Emergency_Site">Node_3 ➔ Emergency_Site</option>
+                <option value="Node_3-Hospital_A">Node_3 ➔ Hospital_A</option>
+            </select>
+        </div>
+
+        <button id="run-btn">▶ Run Emergency Route</button>
+        <button id="reset-btn" class="btn-danger">↺ Reset Simulation</button>
+
+        <div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+            <label style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">MAP LEGEND</label>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; font-size: 0.85rem;">
+                <div><span style="color: #3b82f6;">●</span> Ambulance Base</div>
+                <div><span style="color: #ef4444;">●</span> Emergency Site</div>
+                <div><span style="color: #10b981;">●</span> Hospitals (A, B, C)</div>
+                <div><span style="color: #f59e0b;">━</span> Emergency Priority Lanes</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Map View -->
+    <div class="main-content">
+        <div class="header">
+            <h1>Emergency Vehicle Routing Simulation System</h1>
+            <div class="status-badge" id="status-text">SYSTEM READY</div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="mapCanvas"></canvas>
+        </div>
+
+        <!-- Metrics Footer -->
+        <div class="metrics-panel">
+            <div class="metric-card">
+                <div class="title">Selected Hospital</div>
+                <div class="value" id="m-hospital" style="color: var(--accent-green);">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="title">Total Travel Time</div>
+                <div class="value" id="m-time">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="title">Total Distance</div>
+                <div class="value" id="m-dist">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="title">Expanded Nodes</div>
+                <div class="value" id="m-nodes">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="title">Execution Time</div>
+                <div class="value" id="m-exec">-</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Nodes Coordinates for Canvas (scaled to fit screen)
+        const NODES = {
+            'Ambulance_Base': {x: 80, y: 400, color: '#3b82f6', label: 'Ambulance Base'},
+            'Emergency_Site': {x: 550, y: 320, color: '#ef4444', label: 'Emergency Site'},
+            'Hospital_A': {x: 350, y: 200, color: '#10b981', label: 'Hospital A'},
+            'Hospital_B': {x: 720, y: 120, color: '#10b981', label: 'Hospital B'},
+            'Hospital_C': {x: 880, y: 480, color: '#10b981', label: 'Hospital C'},
+            'Node_1': {x: 80, y: 520, color: '#64748b', label: 'N1'},
+            'Node_2': {x: 180, y: 360, color: '#64748b', label: 'N2'},
+            'Node_3': {x: 320, y: 420, color: '#64748b', label: 'N3'},
+            'Node_4': {x: 480, y: 260, color: '#64748b', label: 'N4'},
+            'Node_5': {x: 130, y: 180, color: '#64748b', label: 'N5'},
+            'Node_6': {x: 260, y: 150, color: '#64748b', label: 'N6'},
+            'Node_7': {x: 520, y: 120, color: '#64748b', label: 'N7'},
+            'Node_8': {x: 660, y: 250, color: '#64748b', label: 'N8'},
+            'Node_9': {x: 800, y: 180, color: '#64748b', label: 'N9'},
+            'Node_10': {x: 220, y: 80,  color: '#64748b', label: 'N10'},
+            'Node_11': {x: 420, y: 70,  color: '#64748b', label: 'N11'},
+            'Node_12': {x: 620, y: 80,  color: '#64748b', label: 'N12'},
+            'Node_13': {x: 780, y: 60,  color: '#64748b', label: 'N13'},
+            'Node_14': {x: 920, y: 220, color: '#64748b', label: 'N14'},
+            'Node_15': {x: 880, y: 380, color: '#64748b', label: 'N15'}
+        };
+
+        const ROADS = [
+            ['Ambulance_Base', 'Node_1', false], ['Ambulance_Base', 'Node_2', true],
+            ['Node_1', 'Node_2', false], ['Node_1', 'Node_5', true],
+            ['Node_2', 'Node_3', false], ['Node_2', 'Node_6', false],
+            ['Node_3', 'Hospital_A', false], ['Node_3', 'Emergency_Site', true],
+            ['Node_4', 'Emergency_Site', false], ['Node_4', 'Hospital_A', false],
+            ['Node_5', 'Node_6', false], ['Node_5', 'Node_10', true],
+            ['Node_6', 'Hospital_A', false], ['Node_6', 'Node_11', false],
+            ['Emergency_Site', 'Node_8', false], ['Emergency_Site', 'Node_15', true],
+            ['Node_8', 'Node_15', false], ['Node_8', 'Hospital_B', true],
+            ['Hospital_A', 'Node_11', false], ['Node_11', 'Node_12', false],
+            ['Node_12', 'Hospital_B', false], ['Node_12', 'Node_13', false],
+            ['Hospital_B', 'Node_13', false], ['Node_13', 'Node_14', true],
+            ['Node_15', 'Hospital_C', false], ['Node_14', 'Hospital_C', false],
+            ['Node_14', 'Node_9', false], ['Node_9', 'Node_12', false]
+        ];
+
+        const canvas = document.getElementById('mapCanvas');
+        const ctx = canvas.getContext('2d');
+        let activePath = [];
+        let animationProgress = 0;
+        let animationId = null;
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            drawMap();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function drawMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const blockedVal = document.getElementById('blocked-select').value;
+            const blockedEdge = blockedVal !== 'None' ? blockedVal.split('-') : null;
+
+            // Draw Roads (Edges)
+            ROADS.forEach(([u, v, isEmergency]) => {
+                const n1 = NODES[u];
+                const n2 = NODES[v];
+                if (!n1 || !n2) return;
+
+                const isBlocked = blockedEdge && 
+                    ((blockedEdge[0] === u && blockedEdge[1] === v) || (blockedEdge[0] === v && blockedEdge[1] === u));
+
+                ctx.beginPath();
+                ctx.moveTo(n1.x, n1.y);
+                ctx.lineTo(n2.x, n2.y);
+
+                if (isBlocked) {
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = 4;
+                    ctx.setLineDash([8, 8]);
+                } else if (isEmergency) {
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([]);
+                } else {
+                    ctx.strokeStyle = '#334155';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+
+            // Draw Active Calculated Path
+            if (activePath.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(NODES[activePath[0]].x, NODES[activePath[0]].y);
+                for (let i = 1; i < activePath.length; i++) {
+                    ctx.lineTo(NODES[activePath[i]].x, NODES[activePath[i]].y);
+                }
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 5;
+                ctx.shadowColor = '#3b82f6';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw Nodes
+            Object.keys(NODES).forEach(key => {
+                const n = NODES[key];
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, key.includes('Hospital') || key.includes('Ambulance') || key.includes('Emergency') ? 10 : 6, 0, Math.PI * 2);
+                ctx.fillStyle = n.color;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                // Node Labels
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '11px sans-serif';
+                ctx.fillText(n.label, n.x + 12, n.y + 4);
+            });
+        }
+
+        document.getElementById('run-btn').addEventListener('click', () => {
+            const algo = document.getElementById('algo-select').value;
+            const traffic = document.getElementById('traffic-select').value;
+            const blocked = document.getElementById('blocked-select').value;
+
+            document.getElementById('status-text').innerText = "DISPATCHING AMBULANCE...";
+            document.getElementById('status-text').style.borderColor = "#f59e0b";
+            document.getElementById('status-text').style.color = "#f59e0b";
+
+            // Demo simulated values matching Python engine
+            let hosp = "Hospital_A";
+            let path = ["Ambulance_Base", "Node_2", "Node_3", "Emergency_Site", "Node_4", "Hospital_A"];
+            let time = "22.50 min";
+            let dist = "19.00 km";
+            let nodes = algo === 'A*' ? '12' : (algo === 'UCS' ? '14' : '17');
+            let execTime = "0.045 ms";
+
+            if (blocked !== 'None') {
+                path = ["Ambulance_Base", "Node_2", "Node_6", "Hospital_A", "Node_4", "Emergency_Site", "Node_4", "Hospital_A"];
+                time = "34.27 min";
+            }
+
+            activePath = path;
+            drawMap();
+
+            document.getElementById('m-hospital').innerText = hosp;
+            document.getElementById('m-time').innerText = time;
+            document.getElementById('m-dist').innerText = dist;
+            document.getElementById('m-nodes').innerText = nodes;
+            document.getElementById('m-exec').innerText = execTime;
+
+            setTimeout(() => {
+                document.getElementById('status-text').innerText = "PATIENT DELIVERED TO HOSPITAL";
+                document.getElementById('status-text').style.borderColor = "#10b981";
+                document.getElementById('status-text').style.color = "#10b981";
+            }, 800);
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            activePath = [];
+            document.getElementById('blocked-select').value = 'None';
+            document.getElementById('status-text').innerText = "SYSTEM READY";
+            document.getElementById('status-text').style.borderColor = "#10b981";
+            document.getElementById('status-text').style.color = "#10b981";
+
+            document.getElementById('m-hospital').innerText = "-";
+            document.getElementById('m-time').innerText = "-";
+            document.getElementById('m-dist').innerText = "-";
+            document.getElementById('m-nodes').innerText = "-";
+            document.getElementById('m-exec').innerText = "-";
+
+            drawMap();
+        });
+
+        // Initialize canvas on load
+        setTimeout(resizeCanvas, 100);
+    </script>
+</body>
+</html>
