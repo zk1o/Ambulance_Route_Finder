@@ -43,7 +43,12 @@ ROADS_NETWORK = [
     ('Node_15', 'Hospital_C', 3.0, 60, False),
     ('Node_14', 'Hospital_C', 6.0, 60, False),
     ('Node_14', 'Node_9', 4.0, 50, False),
-    ('Node_9', 'Node_12', 5.0, 60, False)
+    ('Node_9', 'Node_12', 5.0, 60, False),
+    ('Node_3', 'Node_4', 4.5, 50, False),
+    ('Node_4', 'Node_8', 4.5, 60, False),
+    ('Node_4', 'Node_7', 4.5, 50, False),
+    ('Node_7', 'Node_12', 4.0, 60, False),
+    ('Node_10', 'Node_11', 4.5, 50, False)
 ]
 
 # 3. معملات المرور

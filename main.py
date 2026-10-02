@@ -37,11 +37,16 @@ def custom_route_cli():
     traffic_map = {'1': 'Low', '2': 'Medium', '3': 'Heavy'}
     traffic = traffic_map.get(traffic_choice, 'Medium')
 
-    block_input = input("\nEnter blocked road edge (e.g. Node_3,Emergency_Site or leave empty): ").strip()
+    block_input = input("\nEnter blocked road edge(s) separated by ';' (e.g. Node_3,Emergency_Site; Node_1,Node_2 or leave empty): ").strip()
     blocked_roads = []
-    if block_input and ',' in block_input:
-        u, v = block_input.split(',')
-        blocked_roads.append((u.strip(), v.strip()))
+    if block_input:
+        road_pairs = block_input.split(';')
+        for pair in road_pairs:
+            nodes = [n.strip() for n in pair.split(',') if n.strip()]
+            if len(nodes) == 2:
+                blocked_roads.append((nodes[0], nodes[1]))
+            elif len(nodes) > 2:
+                print(f"⚠️ Warning: Ignored invalid road segment '{pair}'. A road edge must contain exactly 2 nodes.")
 
     print(f"\nCalculating route using ({algo}) under ({traffic}) traffic condition...\n")
     

@@ -31,7 +31,6 @@
             overflow: hidden;
         }
 
-        /* Sidebar Control Panel */
         .sidebar {
             width: 380px;
             background-color: var(--panel-bg);
@@ -39,28 +38,28 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
             overflow-y: auto;
         }
 
         .sidebar h2 {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             color: var(--accent-red);
             display: flex;
             align-items: center;
             gap: 10px;
             border-bottom: 2px solid var(--border-color);
-            padding-bottom: 10px;
+            padding-bottom: 8px;
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
 
         .control-group label {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #94a3b8;
             font-weight: 600;
             text-transform: uppercase;
@@ -70,15 +69,10 @@
             background-color: #0f172a;
             border: 1px solid var(--border-color);
             color: var(--text-light);
-            padding: 10px 14px;
+            padding: 9px 12px;
             border-radius: 6px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             outline: none;
-            transition: all 0.2s ease;
-        }
-
-        select:focus, input:focus {
-            border-color: var(--accent-blue);
         }
 
         button {
@@ -87,11 +81,18 @@
             font-weight: bold;
             cursor: pointer;
             border: none;
-            margin-top: 5px;
+            margin-top: 4px;
+            transition: all 0.2s ease;
         }
 
         button:hover {
             background-color: #2563eb;
+        }
+
+        button:disabled {
+            background-color: #475569;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
 
         button.btn-danger {
@@ -102,7 +103,6 @@
             background-color: #dc2626;
         }
 
-        /* Main Map View */
         .main-content {
             flex: 1;
             display: flex;
@@ -112,7 +112,7 @@
 
         .header {
             background-color: var(--panel-bg);
-            padding: 15px 25px;
+            padding: 12px 20px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
@@ -120,16 +120,16 @@
         }
 
         .header h1 {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
         }
 
         .status-badge {
             background-color: rgba(16, 185, 129, 0.2);
             color: var(--accent-green);
-            padding: 6px 12px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: bold;
             border: 1px solid var(--accent-green);
         }
@@ -144,43 +144,72 @@
             width: 100%;
             height: 100%;
             display: block;
+            cursor: pointer;
         }
 
-        /* Results Metrics Bar */
+        /* Tooltip for Hovering on Roads */
+        #road-tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid var(--accent-blue);
+            color: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
         .metrics-panel {
             background-color: var(--panel-bg);
             border-top: 1px solid var(--border-color);
-            padding: 15px 25px;
+            padding: 12px 20px;
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 15px;
+            gap: 12px;
+            align-items: start; /* يسمح للبطاقة بالتمدد حسب المحتوى */
         }
 
         .metric-card {
             background-color: var(--bg-dark);
-            padding: 12px;
+            padding: 10px;
             border-radius: 6px;
             border: 1px solid var(--border-color);
+            min-height: 85px; /* يضمن ارتفاع كافي لعرض التفاصيل الكاملة */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
         }
 
         .metric-card .title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #94a3b8;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .metric-card .value {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: bold;
             color: var(--accent-blue);
+            line-height: 1.2;
+        }
+
+        .instruction-tip {
+            font-size: 0.75rem;
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 8px;
+            border-radius: 6px;
         }
     </style>
 </head>
 <body>
 
-    <!-- Left Controls Panel -->
     <div class="sidebar">
-        <h2>🚑 Dispatch Operations</h2>
+        <h2>🚑 Dispatch Control Room</h2>
 
         <div class="control-group">
             <label>Search Algorithm</label>
@@ -192,7 +221,7 @@
         </div>
 
         <div class="control-group">
-            <label>Traffic Level</label>
+            <label>Traffic Condition</label>
             <select id="traffic-select">
                 <option value="Low">Low Traffic (1.0x)</option>
                 <option value="Medium" selected>Medium Traffic (1.5x)</option>
@@ -200,41 +229,37 @@
             </select>
         </div>
 
-        <div class="control-group">
-            <label>Blocked Road Edge</label>
-            <select id="blocked-select">
-                <option value="None">None (All Roads Open)</option>
-                <option value="Node_3-Emergency_Site">Node_3 ➔ Emergency_Site</option>
-                <option value="Node_3-Hospital_A">Node_3 ➔ Hospital_A</option>
-            </select>
+        <div class="instruction-tip">
+            💡 <strong>Interactive Map:</strong> Hover over any road edge to inspect exact travel time! Click to block/unblock roads.
         </div>
 
-        <button id="run-btn">▶ Run Emergency Route</button>
-        <button id="reset-btn" class="btn-danger">↺ Reset Simulation</button>
+        <button id="run-btn">▶ Run Emergency Routing</button>
+        <button id="reset-btn" class="btn-danger">↺ Clear Blocked Roads & Reset</button>
 
-        <div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 15px;">
-            <label style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">MAP LEGEND</label>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; font-size: 0.85rem;">
+        <div style="border-top: 1px solid var(--border-color); padding-top: 10px;">
+            <label style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">MAP LEGEND</label>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px; font-size: 0.8rem;">
                 <div><span style="color: #3b82f6;">●</span> Ambulance Base</div>
                 <div><span style="color: #ef4444;">●</span> Emergency Site</div>
                 <div><span style="color: #10b981;">●</span> Hospitals (A, B, C)</div>
-                <div><span style="color: #f59e0b;">━</span> Emergency Priority Lanes</div>
+                <div><span id="legend-road-color" style="color: #eab308;">━</span> Standard Road (Time Badge)</div>
+                <div><span style="color: #38bdf8; font-weight: bold;">━</span> Emergency Priority Lane (30% Discount)</div>
+                <div><span style="color: #ef4444;">╌</span> Blocked Road (Click to toggle)</div>
             </div>
         </div>
     </div>
 
-    <!-- Main Map View -->
     <div class="main-content">
         <div class="header">
-            <h1>Emergency Vehicle Routing Simulation System</h1>
-            <div class="status-badge" id="status-text">SYSTEM READY</div>
+            <h1>Smart Emergency Route Finder (Live AI Engine)</h1>
+            <div class="status-badge" id="status-text">READY</div>
         </div>
 
         <div id="canvas-container">
             <canvas id="mapCanvas"></canvas>
+            <div id="road-tooltip"></div>
         </div>
 
-        <!-- Metrics Footer -->
         <div class="metrics-panel">
             <div class="metric-card">
                 <div class="title">Selected Hospital</div>
@@ -260,184 +285,643 @@
     </div>
 
     <script>
-        // Nodes Coordinates for Canvas (scaled to fit screen)
-        const NODES = {
-            'Ambulance_Base': {x: 80, y: 400, color: '#3b82f6', label: 'Ambulance Base'},
-            'Emergency_Site': {x: 550, y: 320, color: '#ef4444', label: 'Emergency Site'},
-            'Hospital_A': {x: 350, y: 200, color: '#10b981', label: 'Hospital A'},
-            'Hospital_B': {x: 720, y: 120, color: '#10b981', label: 'Hospital B'},
-            'Hospital_C': {x: 880, y: 480, color: '#10b981', label: 'Hospital C'},
-            'Node_1': {x: 80, y: 520, color: '#64748b', label: 'N1'},
-            'Node_2': {x: 180, y: 360, color: '#64748b', label: 'N2'},
-            'Node_3': {x: 320, y: 420, color: '#64748b', label: 'N3'},
-            'Node_4': {x: 480, y: 260, color: '#64748b', label: 'N4'},
-            'Node_5': {x: 130, y: 180, color: '#64748b', label: 'N5'},
-            'Node_6': {x: 260, y: 150, color: '#64748b', label: 'N6'},
-            'Node_7': {x: 520, y: 120, color: '#64748b', label: 'N7'},
-            'Node_8': {x: 660, y: 250, color: '#64748b', label: 'N8'},
-            'Node_9': {x: 800, y: 180, color: '#64748b', label: 'N9'},
-            'Node_10': {x: 220, y: 80,  color: '#64748b', label: 'N10'},
-            'Node_11': {x: 420, y: 70,  color: '#64748b', label: 'N11'},
-            'Node_12': {x: 620, y: 80,  color: '#64748b', label: 'N12'},
-            'Node_13': {x: 780, y: 60,  color: '#64748b', label: 'N13'},
-            'Node_14': {x: 920, y: 220, color: '#64748b', label: 'N14'},
-            'Node_15': {x: 880, y: 380, color: '#64748b', label: 'N15'}
+        const NODES_DATA = {
+            'Ambulance_Base': {x: 0, y: 2, label: 'Ambulance Base', type: 'amb'},
+            'Emergency_Site': {x: 10, y: 4, label: 'Emergency Site', type: 'emerg'},
+            'Hospital_A': {x: 6, y: 6, label: 'Hospital A', type: 'hosp'},
+            'Hospital_B': {x: 13, y: 11, label: 'Hospital B', type: 'hosp'},
+            'Hospital_C': {x: 16, y: 2, label: 'Hospital C', type: 'hosp'},
+            'Node_1': {x: 0, y: 0, label: 'N1', type: 'node'},
+            'Node_2': {x: 2, y: 3, label: 'N2', type: 'node'},
+            'Node_3': {x: 5, y: 2, label: 'N3', type: 'node'},
+            'Node_4': {x: 8, y: 5, label: 'N4', type: 'node'},
+            'Node_5': {x: 1, y: 7, label: 'N5', type: 'node'},
+            'Node_6': {x: 4, y: 8, label: 'N6', type: 'node'},
+            'Node_7': {x: 9, y: 9, label: 'N7', type: 'node'},
+            'Node_8': {x: 12, y: 6, label: 'N8', type: 'node'},
+            'Node_9': {x: 15, y: 8, label: 'N9', type: 'node'},
+            'Node_10': {x: 3, y: 12, label: 'N10', type: 'node'},
+            'Node_11': {x: 7, y: 13, label: 'N11', type: 'node'},
+            'Node_12': {x: 11, y: 12, label: 'N12', type: 'node'},
+            'Node_13': {x: 14, y: 14, label: 'N13', type: 'node'},
+            'Node_14': {x: 18, y: 10, label: 'N14', type: 'node'},
+            'Node_15': {x: 17, y: 4, label: 'N15', type: 'node'}
         };
 
-        const ROADS = [
-            ['Ambulance_Base', 'Node_1', false], ['Ambulance_Base', 'Node_2', true],
-            ['Node_1', 'Node_2', false], ['Node_1', 'Node_5', true],
-            ['Node_2', 'Node_3', false], ['Node_2', 'Node_6', false],
-            ['Node_3', 'Hospital_A', false], ['Node_3', 'Emergency_Site', true],
-            ['Node_4', 'Emergency_Site', false], ['Node_4', 'Hospital_A', false],
-            ['Node_5', 'Node_6', false], ['Node_5', 'Node_10', true],
-            ['Node_6', 'Hospital_A', false], ['Node_6', 'Node_11', false],
-            ['Emergency_Site', 'Node_8', false], ['Emergency_Site', 'Node_15', true],
-            ['Node_8', 'Node_15', false], ['Node_8', 'Hospital_B', true],
-            ['Hospital_A', 'Node_11', false], ['Node_11', 'Node_12', false],
-            ['Node_12', 'Hospital_B', false], ['Node_12', 'Node_13', false],
-            ['Hospital_B', 'Node_13', false], ['Node_13', 'Node_14', true],
-            ['Node_15', 'Hospital_C', false], ['Node_14', 'Hospital_C', false],
-            ['Node_14', 'Node_9', false], ['Node_9', 'Node_12', false]
+        const ROADS_DATA = [
+            ['Ambulance_Base', 'Node_1', 2.0, 50, false],
+            ['Ambulance_Base', 'Node_2', 3.5, 60, true],
+            ['Node_1', 'Node_2', 2.5, 40, false],
+            ['Node_1', 'Node_5', 7.0, 80, true],
+            ['Node_2', 'Node_3', 4.0, 50, false],
+            ['Node_2', 'Node_6', 5.5, 60, false],
+            ['Node_3', 'Hospital_A', 3.0, 50, false],
+            ['Node_3', 'Emergency_Site', 6.0, 70, true],
+            ['Node_4', 'Emergency_Site', 2.5, 50, false],
+            ['Node_4', 'Hospital_A', 3.0, 60, false],
+            ['Node_5', 'Node_6', 3.0, 50, false],
+            ['Node_5', 'Node_10', 6.0, 70, true],
+            ['Node_6', 'Hospital_A', 4.0, 50, false],
+            ['Node_6', 'Node_11', 5.0, 60, false],
+            ['Emergency_Site', 'Node_8', 3.0, 50, false],
+            ['Emergency_Site', 'Node_15', 7.0, 80, true],
+            ['Node_8', 'Node_15', 4.5, 60, false],
+            ['Node_8', 'Hospital_B', 5.0, 70, true],
+            ['Hospital_A', 'Node_11', 6.0, 60, false],
+            ['Node_11', 'Node_12', 4.0, 50, false],
+            ['Node_12', 'Hospital_B', 3.0, 60, false],
+            ['Node_12', 'Node_13', 4.0, 60, false],
+            ['Hospital_B', 'Node_13', 3.5, 50, false],
+            ['Node_13', 'Node_14', 5.0, 70, true],
+            ['Node_15', 'Hospital_C', 3.0, 60, false],
+            ['Node_14', 'Hospital_C', 6.0, 60, false],
+            ['Node_14', 'Node_9', 4.0, 50, false],
+            ['Node_9', 'Node_12', 5.0, 60, false],
+            // --- added so the network meets the >= 30 roads requirement and Node_7 / Node_10 are connected ---
+            ['Node_3', 'Node_4', 4.5, 50, false],
+            ['Node_4', 'Node_8', 4.5, 60, false],
+            ['Node_4', 'Node_7', 4.5, 50, false],
+            ['Node_7', 'Node_12', 4.0, 60, false],
+            ['Node_10', 'Node_11', 4.5, 50, false]
         ];
+
+        const TRAFFIC_FACTORS = {'Low': 1.0, 'Medium': 1.5, 'Heavy': 2.5};
+        const TRAFFIC_COLORS = {'Low': '#10b981', 'Medium': '#eab308', 'Heavy': '#f97316'};
+
+        let blockedRoads = new Set();
+        let activePath = [];
+        let animatedAmbulancePos = null;
+        let animationFrameId = null;
+        let hoveredEdge = null;
+        let lastTrace = {p1: [], p2: []};   // expanded nodes of the last mission (drawn as rings)
 
         const canvas = document.getElementById('mapCanvas');
         const ctx = canvas.getContext('2d');
-        let activePath = [];
-        let animationProgress = 0;
-        let animationId = null;
+        const tooltip = document.getElementById('road-tooltip');
+
+        function getCanvasCoords(nodeKey) {
+            const node = NODES_DATA[nodeKey];
+            const padding = 60;
+            const width = canvas.width - padding * 2;
+            const height = canvas.height - padding * 2;
+            const x = padding + (node.x / 18) * width;
+            const y = canvas.height - (padding + (node.y / 14) * height);
+            return {x, y};
+        }
+
+        // Single Unified Travel Time Calculation Function
+        function getEdgeTravelTime(dist, speed, isEmerg, trafficCondition) {
+            const mult = TRAFFIC_FACTORS[trafficCondition] || 1.0;
+            const discount = isEmerg ? 0.7 : 1.0;
+            return (dist / speed) * 60.0 * mult * discount;
+        }
+
+        function buildGraph(trafficCondition) {
+            const graph = {};
+
+            ROADS_DATA.forEach(([u, v, dist, speed, isEmerg]) => {
+                const edgeKey = [u, v].sort().join('--');
+                if (blockedRoads.has(edgeKey)) return;
+
+                const time = getEdgeTravelTime(dist, speed, isEmerg, trafficCondition);
+
+                if (!graph[u]) graph[u] = [];
+                if (!graph[v]) graph[v] = [];
+
+                graph[u].push({neighbor: v, distance: dist, time: time});
+                graph[v].push({neighbor: u, distance: dist, time: time});
+            });
+            return graph;
+        }
+
+        // ==== CORE:BEGIN =====================================================
+        // Conventions (identical to the Python implementation):
+        //  * "Expanded node" = a node REMOVED from the frontier whose successors
+        //    were generated. The goal node itself is never expanded.
+        //  * BFS applies the goal test when a node is GENERATED; UCS and A*
+        //    apply it when the goal is POPPED (required for optimality).
+        //  * Each node is expanded at most once (closed set). A node that is
+        //    re-opened would be a heuristic-consistency bug, so we detect it.
+        //  * Time and distance are always derived from the same edge objects
+        //    that the map draws, so equations and canvas can never disagree.
+
+        const HOSPITALS = ['Hospital_A', 'Hospital_B', 'Hospital_C'];
+        const BASE = 'Ambulance_Base';
+        const SITE = 'Emergency_Site';
+
+        function euclid(u, v) {
+            const a = NODES_DATA[u], b = NODES_DATA[v];
+            return Math.hypot(a.x - b.x, a.y - b.y);
+        }
+
+        // Binary min-heap ordered by (f, h, seq): ties favour nodes closer to the goal.
+        class MinHeap {
+            constructor() { this.a = []; this.seq = 0; }
+            get size() { return this.a.length; }
+            _less(x, y) {
+                return x.f !== y.f ? x.f < y.f : (x.h !== y.h ? x.h < y.h : x.seq < y.seq);
+            }
+            push(item) {
+                item.seq = this.seq++;
+                const a = this.a; a.push(item);
+                let i = a.length - 1;
+                while (i > 0) {
+                    const p = (i - 1) >> 1;
+                    if (!this._less(a[i], a[p])) break;
+                    [a[i], a[p]] = [a[p], a[i]]; i = p;
+                }
+            }
+            pop() {
+                const a = this.a, top = a[0], last = a.pop();
+                if (a.length) {
+                    a[0] = last;
+                    let i = 0;
+                    for (;;) {
+                        let l = 2 * i + 1, r = l + 1, m = i;
+                        if (l < a.length && this._less(a[l], a[m])) m = l;
+                        if (r < a.length && this._less(a[r], a[m])) m = r;
+                        if (m === i) break;
+                        [a[i], a[m]] = [a[m], a[i]]; i = m;
+                    }
+                }
+                return top;
+            }
+        }
+
+        /**
+         * Admissible + consistent heuristic built from the CURRENT graph:
+         *   k = min over open roads of  time(e) / euclid(e)      (min minutes per map unit)
+         *   h(n) = k * euclid(n, goal)
+         * Every road costs >= k * euclid(road), so by the triangle inequality
+         * no path can be cheaper than k * euclid(n, goal)  => h never overestimates.
+         * It adapts to traffic level and emergency lanes automatically.
+         */
+        function makeHeuristic(graph, goal) {
+            let k = Infinity;
+            for (const u in graph) {
+                for (const e of graph[u]) {
+                    const d = euclid(u, e.neighbor);
+                    if (d > 0) k = Math.min(k, e.time / d);
+                }
+            }
+            if (!isFinite(k)) k = 0;
+            return n => k * euclid(n, goal);
+        }
+
+        function reconstruct(parent, goal) {
+            const path = [];
+            for (let n = goal; n !== null; n = parent[n].prev) path.push(n);
+            return path.reverse();
+        }
+
+        /** Exact time/distance of a node path on a given graph (single source of truth). */
+        function evaluatePath(graph, path) {
+            let time = 0, dist = 0;
+            for (let i = 0; i < path.length - 1; i++) {
+                const e = (graph[path[i]] || []).find(x => x.neighbor === path[i + 1]);
+                if (!e) throw new Error(`Path uses a missing/blocked road ${path[i]} -> ${path[i + 1]}`);
+                time += e.time; dist += e.distance;
+            }
+            return {time, dist};
+        }
+
+        function runSearch(graph, start, goal, algo) {
+            const t0 = performance.now();
+            const parent = {[start]: {prev: null}};
+            const expandedOrder = [];
+            let generated = 1;
+
+            const finish = (found, extra = {}) => {
+                const res = {
+                    algo, found, expandedNodes: expandedOrder.length, generatedNodes: generated,
+                    expandedOrder, path: [], time: Infinity, dist: Infinity, ...extra
+                };
+                if (found) {
+                    res.path = reconstruct(parent, goal);
+                    const m = evaluatePath(graph, res.path);   // recomputed, never accumulated by hand
+                    res.time = m.time; res.dist = m.dist;
+                }
+                res.execTime = performance.now() - t0;
+                return res;
+            };
+
+            if (start === goal) return finish(true);
+
+            if (algo === 'BFS') {
+                const queue = [start];
+                let head = 0;                                  // O(1) dequeue
+                const seen = new Set([start]);
+                while (head < queue.length) {
+                    const n = queue[head++];
+                    expandedOrder.push(n);                     // popped => expanded (goal never popped here)
+                    for (const e of graph[n] || []) {
+                        if (seen.has(e.neighbor)) continue;
+                        seen.add(e.neighbor);
+                        parent[e.neighbor] = {prev: n};
+                        generated++;
+                        if (e.neighbor === goal) return finish(true);
+                        queue.push(e.neighbor);
+                    }
+                }
+                return finish(false);
+            }
+
+            // UCS (h = 0) and A* (h = admissible heuristic)
+            const h = algo === 'A*' ? makeHeuristic(graph, goal) : () => 0;
+            const g = {[start]: 0};
+            const closed = new Set();
+            const heap = new MinHeap();
+            heap.push({node: start, g: 0, h: h(start), f: h(start)});
+
+            while (heap.size) {
+                const cur = heap.pop();
+                const n = cur.node;
+                if (closed.has(n) || cur.g > g[n] + 1e-12) continue;  // stale duplicate: NOT counted
+                if (n === goal) return finish(true);                   // goal test at POP (optimal)
+                closed.add(n);
+                expandedOrder.push(n);                                 // counted exactly once
+                for (const e of graph[n] || []) {
+                    const g2 = g[n] + e.time;
+                    if (closed.has(e.neighbor)) {
+                        if (g2 < g[e.neighbor] - 1e-9)
+                            console.warn('Heuristic inconsistency: re-opening', e.neighbor);
+                        continue;
+                    }
+                    if (g[e.neighbor] === undefined || g2 < g[e.neighbor] - 1e-12) {
+                        g[e.neighbor] = g2;
+                        parent[e.neighbor] = {prev: n};
+                        generated++;
+                        const hv = h(e.neighbor);
+                        heap.push({node: e.neighbor, g: g2, h: hv, f: g2 + hv});
+                    }
+                }
+            }
+            return finish(false);
+        }
+
+        /** Hospital choice = lowest optimal travel time (evaluated with A*, so independent of the displayed algorithm). */
+        function selectHospital(graph, from) {
+            const evals = HOSPITALS.map(h => ({hospital: h, res: runSearch(graph, from, h, 'A*')}));
+            const ok = evals.filter(e => e.res.found);
+            if (!ok.length) return null;
+            const best = ok.reduce((a, b) => (b.res.time < a.res.time - 1e-12 ? b : a));
+            return {best: best.hospital, evals, overheadNodes: evals.reduce((s, e) => s + e.res.expandedNodes, 0)};
+        }
+
+        /** Two-phase mission. Returned totals are recomputed from the merged map path. */
+        function planMission(graph, algo) {
+            const p1 = runSearch(graph, BASE, SITE, algo);
+            if (!p1.found) return {error: 'No path available to reach Emergency Site!'};
+            const sel = selectHospital(graph, SITE);
+            if (!sel) return {error: 'No hospital reachable from Emergency Site!'};
+            const p2 = runSearch(graph, SITE, sel.best, algo);
+
+            const path = [...p1.path, ...p2.path.slice(1)];        // the exact polyline drawn on the map
+            const total = evaluatePath(graph, path);
+            if (Math.abs(total.time - (p1.time + p2.time)) > 1e-9 ||
+                Math.abs(total.dist - (p1.dist + p2.dist)) > 1e-9)
+                throw new Error('Phase totals disagree with the drawn path');
+
+            return {
+                algo, hospital: sel.best, path, p1, p2, selection: sel,
+                totalTime: total.time, totalDist: total.dist,
+                totalExpanded: p1.expandedNodes + p2.expandedNodes,   // Phase 1 + Phase 2 (displayed route)
+                selectionExpanded: sel.overheadNodes,                 // reported separately, never mixed in
+                execTime: p1.execTime + p2.execTime
+            };
+        }
+
+        /** Console sanity report: flags data that breaks geometry or reachability. */
+        function validateNetwork() {
+            const warn = [];
+            const deg = {};
+            ROADS_DATA.forEach(([u, v, d]) => {
+                deg[u] = (deg[u] || 0) + 1; deg[v] = (deg[v] || 0) + 1;
+                if (euclid(u, v) > d + 1e-9)
+                    warn.push(`Road ${u}-${v}: length ${d} < straight-line ${euclid(u, v).toFixed(2)} (map units)`);
+            });
+            Object.keys(NODES_DATA).forEach(n => { if (!deg[n]) warn.push(`Node ${n} has no roads`); });
+            console.info(`Network: ${Object.keys(NODES_DATA).length} nodes, ${ROADS_DATA.length} roads`);
+            warn.forEach(w => console.warn(w));
+            return warn;
+        }
+        // ==== CORE:END =======================================================
+
+        function drawMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const traffic = document.getElementById('traffic-select').value;
+            const roadColor = TRAFFIC_COLORS[traffic] || '#eab308';
+            document.getElementById('legend-road-color').style.color = roadColor;
+
+            // Draw Roads & Time Badges
+            ROADS_DATA.forEach(([u, v, dist, speed, isEmerg]) => {
+                const p1 = getCanvasCoords(u);
+                const p2 = getCanvasCoords(v);
+                const edgeKey = [u, v].sort().join('--');
+                const isBlocked = blockedRoads.has(edgeKey);
+                const isHovered = (hoveredEdge === edgeKey);
+
+                const time = getEdgeTravelTime(dist, speed, isEmerg, traffic);
+
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+
+                if (isBlocked) {
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = isHovered ? 6 : 4;
+                    ctx.setLineDash([6, 6]);
+                } else if (isEmerg) {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = isHovered ? 5.5 : 3.5;
+                    ctx.setLineDash([]);
+                } else {
+                    ctx.strokeStyle = isHovered ? '#ffffff' : roadColor;
+                    ctx.lineWidth = isHovered ? 4 : 2;
+                    ctx.setLineDash([]);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Time Badge
+                if (!isBlocked) {
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+
+                    ctx.fillStyle = isHovered ? '#3b82f6' : '#1e293b';
+                    ctx.fillRect(midX - 16, midY - 9, 32, 18);
+                    ctx.strokeStyle = isHovered ? '#ffffff' : '#475569';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(midX - 16, midY - 9, 32, 18);
+
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.font = 'bold 9px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`${time.toFixed(1)}m`, midX, midY);
+                }
+            });
+
+            // Draw Active Path
+            if (activePath.length > 1) {
+                ctx.beginPath();
+                const start = getCanvasCoords(activePath[0]);
+                ctx.moveTo(start.x, start.y);
+                for (let i = 1; i < activePath.length; i++) {
+                    const p = getCanvasCoords(activePath[i]);
+                    ctx.lineTo(p.x, p.y);
+                }
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 6;
+                ctx.shadowColor = '#3b82f6';
+                ctx.shadowBlur = 14;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw Nodes
+            Object.keys(NODES_DATA).forEach(key => {
+                const p = getCanvasCoords(key);
+                const n = NODES_DATA[key];
+
+                let color = '#64748b';
+                let radius = 6;
+                if (n.type === 'amb') { color = '#3b82f6'; radius = 10; }
+                else if (n.type === 'emerg') { color = '#ef4444'; radius = 10; }
+                else if (n.type === 'hosp') { color = '#10b981'; radius = 10; }
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                // Expansion rings: orange = Phase 1, purple = Phase 2 (count == displayed Expanded Nodes)
+                [['p1', '#f59e0b', 17], ['p2', '#a855f7', 22]].forEach(([ph, col, r]) => {
+                    if (lastTrace[ph].includes(key)) {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                        ctx.strokeStyle = col;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                });
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'start';
+                ctx.textBaseline = 'alphabetic';
+                ctx.fillText(n.label, p.x + 12, p.y + 4);
+            });
+
+            // Animated Vehicle Icon
+            if (animatedAmbulancePos) {
+                const {x, y} = animatedAmbulancePos;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 16, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+                ctx.fill();
+
+                ctx.font = '22px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🚑', x, y);
+                ctx.textAlign = 'start';
+                ctx.textBaseline = 'alphabetic';
+            }
+        }
+
+        function animateAmbulanceAlongPath(pathNodes, onComplete) {
+            if (pathNodes.length < 2) return;
+
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            const points = pathNodes.map(nodeKey => getCanvasCoords(nodeKey));
+            let segmentIndex = 0;
+            let progress = 0;
+            const speed = 0.025;
+
+            document.getElementById('run-btn').disabled = true;
+
+            function step() {
+                if (segmentIndex >= points.length - 1) {
+                    animatedAmbulancePos = points[points.length - 1];
+                    drawMap();
+                    document.getElementById('run-btn').disabled = false;
+                    if (onComplete) onComplete();
+                    return;
+                }
+
+                progress += speed;
+                if (progress >= 1) {
+                    progress = 0;
+                    segmentIndex++;
+                }
+
+                if (segmentIndex < points.length - 1) {
+                    const currentP1 = points[segmentIndex];
+                    const currentP2 = points[segmentIndex + 1];
+                    animatedAmbulancePos = {
+                        x: currentP1.x + (currentP2.x - currentP1.x) * progress,
+                        y: currentP1.y + (currentP2.y - currentP1.y) * progress
+                    };
+                } else {
+                    animatedAmbulancePos = points[points.length - 1];
+                }
+
+                drawMap();
+                animationFrameId = requestAnimationFrame(step);
+            }
+
+            step();
+        }
+
+        function distToSegment(px, py, x1, y1, x2, y2) {
+            const l2 = Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2);
+            if (l2 === 0) return Math.hypot(px - x1, py - y1);
+            let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            const projX = x1 + t * (x2 - x1);
+            const projY = y1 + t * (y2 - y1);
+            return Math.hypot(px - projX, py - projY);
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            let foundEdge = null;
+            let minDistance = Infinity;
+
+            ROADS_DATA.forEach(([u, v, dist, speed, isEmerg]) => {
+                const p1 = getCanvasCoords(u);
+                const p2 = getCanvasCoords(v);
+                const d = distToSegment(mouseX, mouseY, p1.x, p1.y, p2.x, p2.y);
+
+                if (d < minDistance) {
+                    minDistance = d;
+                    foundEdge = {u, v, dist, speed, isEmerg, edgeKey: [u, v].sort().join('--')};
+                }
+            });
+
+            if (foundEdge && minDistance < 15) {
+                hoveredEdge = foundEdge.edgeKey;
+                const traffic = document.getElementById('traffic-select').value;
+                const time = getEdgeTravelTime(foundEdge.dist, foundEdge.speed, foundEdge.isEmerg, traffic);
+                const isBlocked = blockedRoads.has(foundEdge.edgeKey);
+
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+                tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
+                tooltip.innerHTML = `
+                    <strong>${foundEdge.u} ➔ ${foundEdge.v}</strong><br/>
+                    ⏱️ Travel Time: <b>${time.toFixed(2)} min</b><br/>
+                    📏 Distance: ${foundEdge.dist} km | 🚗 Speed: ${foundEdge.speed} km/h<br/>
+                    ⚡ Lane Type: ${foundEdge.isEmerg ? '<span style="color:#38bdf8">Emergency Priority</span>' : 'Standard'}<br/>
+                    Status: ${isBlocked ? '<span style="color:#ef4444">BLOCKED</span>' : '<span style="color:#10b981">OPEN</span>'}
+                `;
+            } else {
+                hoveredEdge = null;
+                tooltip.style.display = 'none';
+            }
+            drawMap();
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            hoveredEdge = null;
+            tooltip.style.display = 'none';
+            drawMap();
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            let closestEdge = null;
+            let minDistance = Infinity;
+
+            ROADS_DATA.forEach(([u, v]) => {
+                const p1 = getCanvasCoords(u);
+                const p2 = getCanvasCoords(v);
+                const dist = distToSegment(clickX, clickY, p1.x, p1.y, p2.x, p2.y);
+
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestEdge = [u, v].sort().join('--');
+                }
+            });
+
+            if (closestEdge && minDistance < 15) {
+                if (blockedRoads.has(closestEdge)) blockedRoads.delete(closestEdge);
+                else blockedRoads.add(closestEdge);
+                drawMap();
+            }
+        });
+
+        document.getElementById('traffic-select').addEventListener('change', drawMap);
+
+        document.getElementById('run-btn').addEventListener('click', () => {
+            const algo = document.getElementById('algo-select').value;
+            const traffic = document.getElementById('traffic-select').value;
+            const graph = buildGraph(traffic);
+
+            const m = planMission(graph, algo);          // Phase 1 + automatic hospital + Phase 2
+            if (m.error) { alert(m.error); return; }
+
+            activePath = m.path;
+            lastTrace = {p1: m.p1.expandedOrder, p2: m.p2.expandedOrder};
+
+            document.getElementById('status-text').innerText = "DISPATCHING AMBULANCE...";
+            document.getElementById('status-text').style.color = "#f59e0b";
+            document.getElementById('status-text').style.borderColor = "#f59e0b";
+
+            animateAmbulanceAlongPath(activePath, () => {
+                document.getElementById('m-hospital').innerText = m.hospital;
+                document.getElementById('m-time').innerText = m.totalTime.toFixed(2) + " min";
+                document.getElementById('m-dist').innerText = m.totalDist.toFixed(2) + " km";
+                document.getElementById('m-nodes').innerHTML = m.totalExpanded +
+    `<div style="font-size:10px; font-weight:normal; color:#94a3b8; margin-top:4px; line-height:1.2;">` +
+    `P1: ${m.p1.expandedNodes} | P2: ${m.p2.expandedNodes}<br/>` +
+    `Selection (A*): ${m.selectionExpanded}` +
+    `</div>`;
+                document.getElementById('m-exec').innerText = m.execTime.toFixed(3) + " ms";
+
+                document.getElementById('status-text').innerText = "PATIENT DELIVERED TO HOSPITAL";
+                document.getElementById('status-text').style.color = "#10b981";
+                document.getElementById('status-text').style.borderColor = "#10b981";
+            });
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            blockedRoads.clear();
+            activePath = [];
+            lastTrace = {p1: [], p2: []};
+            animatedAmbulancePos = null;
+            document.getElementById('run-btn').disabled = false;
+            document.getElementById('m-hospital').innerText = "-";
+            document.getElementById('m-time').innerText = "-";
+            document.getElementById('m-dist').innerText = "-";
+            document.getElementById('m-nodes').innerText = "-";
+            document.getElementById('m-exec').innerText = "-";
+            document.getElementById('status-text').innerText = "READY";
+            drawMap();
+        });
 
         function resizeCanvas() {
             canvas.width = canvas.parentElement.clientWidth;
             canvas.height = canvas.parentElement.clientHeight;
             drawMap();
         }
+
         window.addEventListener('resize', resizeCanvas);
-
-        function drawMap() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const blockedVal = document.getElementById('blocked-select').value;
-            const blockedEdge = blockedVal !== 'None' ? blockedVal.split('-') : null;
-
-            // Draw Roads (Edges)
-            ROADS.forEach(([u, v, isEmergency]) => {
-                const n1 = NODES[u];
-                const n2 = NODES[v];
-                if (!n1 || !n2) return;
-
-                const isBlocked = blockedEdge && 
-                    ((blockedEdge[0] === u && blockedEdge[1] === v) || (blockedEdge[0] === v && blockedEdge[1] === u));
-
-                ctx.beginPath();
-                ctx.moveTo(n1.x, n1.y);
-                ctx.lineTo(n2.x, n2.y);
-
-                if (isBlocked) {
-                    ctx.strokeStyle = '#ef4444';
-                    ctx.lineWidth = 4;
-                    ctx.setLineDash([8, 8]);
-                } else if (isEmergency) {
-                    ctx.strokeStyle = '#f59e0b';
-                    ctx.lineWidth = 3;
-                    ctx.setLineDash([]);
-                } else {
-                    ctx.strokeStyle = '#334155';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([]);
-                }
-                ctx.stroke();
-                ctx.setLineDash([]);
-            });
-
-            // Draw Active Calculated Path
-            if (activePath.length > 1) {
-                ctx.beginPath();
-                ctx.moveTo(NODES[activePath[0]].x, NODES[activePath[0]].y);
-                for (let i = 1; i < activePath.length; i++) {
-                    ctx.lineTo(NODES[activePath[i]].x, NODES[activePath[i]].y);
-                }
-                ctx.strokeStyle = '#3b82f6';
-                ctx.lineWidth = 5;
-                ctx.shadowColor = '#3b82f6';
-                ctx.shadowBlur = 10;
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-            }
-
-            // Draw Nodes
-            Object.keys(NODES).forEach(key => {
-                const n = NODES[key];
-                ctx.beginPath();
-                ctx.arc(n.x, n.y, key.includes('Hospital') || key.includes('Ambulance') || key.includes('Emergency') ? 10 : 6, 0, Math.PI * 2);
-                ctx.fillStyle = n.color;
-                ctx.fill();
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = '#ffffff';
-                ctx.stroke();
-
-                // Node Labels
-                ctx.fillStyle = '#f8fafc';
-                ctx.font = '11px sans-serif';
-                ctx.fillText(n.label, n.x + 12, n.y + 4);
-            });
-        }
-
-        document.getElementById('run-btn').addEventListener('click', () => {
-            const algo = document.getElementById('algo-select').value;
-            const traffic = document.getElementById('traffic-select').value;
-            const blocked = document.getElementById('blocked-select').value;
-
-            document.getElementById('status-text').innerText = "DISPATCHING AMBULANCE...";
-            document.getElementById('status-text').style.borderColor = "#f59e0b";
-            document.getElementById('status-text').style.color = "#f59e0b";
-
-            // Demo simulated values matching Python engine
-            let hosp = "Hospital_A";
-            let path = ["Ambulance_Base", "Node_2", "Node_3", "Emergency_Site", "Node_4", "Hospital_A"];
-            let time = "22.50 min";
-            let dist = "19.00 km";
-            let nodes = algo === 'A*' ? '12' : (algo === 'UCS' ? '14' : '17');
-            let execTime = "0.045 ms";
-
-            if (blocked !== 'None') {
-                path = ["Ambulance_Base", "Node_2", "Node_6", "Hospital_A", "Node_4", "Emergency_Site", "Node_4", "Hospital_A"];
-                time = "34.27 min";
-            }
-
-            activePath = path;
-            drawMap();
-
-            document.getElementById('m-hospital').innerText = hosp;
-            document.getElementById('m-time').innerText = time;
-            document.getElementById('m-dist').innerText = dist;
-            document.getElementById('m-nodes').innerText = nodes;
-            document.getElementById('m-exec').innerText = execTime;
-
-            setTimeout(() => {
-                document.getElementById('status-text').innerText = "PATIENT DELIVERED TO HOSPITAL";
-                document.getElementById('status-text').style.borderColor = "#10b981";
-                document.getElementById('status-text').style.color = "#10b981";
-            }, 800);
-        });
-
-        document.getElementById('reset-btn').addEventListener('click', () => {
-            activePath = [];
-            document.getElementById('blocked-select').value = 'None';
-            document.getElementById('status-text').innerText = "SYSTEM READY";
-            document.getElementById('status-text').style.borderColor = "#10b981";
-            document.getElementById('status-text').style.color = "#10b981";
-
-            document.getElementById('m-hospital').innerText = "-";
-            document.getElementById('m-time').innerText = "-";
-            document.getElementById('m-dist').innerText = "-";
-            document.getElementById('m-nodes').innerText = "-";
-            document.getElementById('m-exec').innerText = "-";
-
-            drawMap();
-        });
-
-        // Initialize canvas on load
+        validateNetwork();
         setTimeout(resizeCanvas, 100);
     </script>
 </body>
