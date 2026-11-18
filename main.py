@@ -2,10 +2,20 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# يمنع أخطاء الترميز في تيرمنال ويندوز عند طباعة الرموز
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
-from src.engine import solve_emergency_routing, compare_nearest_vs_fastest_hospital, AVAILABLE_HOSPITALS
+from src.engine import (solve_emergency_routing, compare_nearest_vs_fastest_hospital,
+                        AVAILABLE_HOSPITALS, RoutingInputError)
 from tests.test_scenarios import run_all_test_scenarios
-from data.network_data import NODES_COORDINATES
+from data.network_data import NODES_COORDINATES, ROADS_NETWORK, TRAFFIC_MULTIPLIERS
+
+NODE_NAMES = list(NODES_COORDINATES)
+
 
 def display_menu():
     print("\n" + "=" * 65)
@@ -14,90 +24,129 @@ def display_menu():
     print("1. Run All Automated Test Scenarios & Comparative Analysis")
     print("2. Calculate Custom Emergency Route")
     print("3. Analyze Nearest vs. Fastest Hospital")
-    print("4. Display Network Graph Nodes & Hospitals")
+    print("4. Display Network Graph Nodes, Roads & Hospitals")
     print("5. Exit")
     print("=" * 65)
 
+
+def ask_choice(title, options, default_index):
+    print(f"\n{title}")
+    for i, opt in enumerate(options, 1):
+        print(f"  {i}. {opt}")
+    raw = input(f"Enter choice (1-{len(options)}) [Default: {default_index + 1}]: ").strip()
+    if raw.isdigit() and 1 <= int(raw) <= len(options):
+        return options[int(raw) - 1]
+    return options[default_index]
+
+
+def ask_node(prompt, default):
+    while True:
+        raw = input(f"{prompt} [Default: {default}]: ").strip() or default
+        if raw in NODES_COORDINATES:
+            return raw
+        print(f"  ! Unknown node '{raw}'. Use option 4 in the main menu to list valid nodes.")
+
+
+def parse_blocked(raw):
+    """'Node_3,Emergency_Site; Node_1,Node_2' -> [(a, b), ...] مع التحقق من وجود الطريق"""
+    existing = {frozenset((u, v)) for u, v, *_ in ROADS_NETWORK}
+    blocked = []
+    for pair in raw.split(';'):
+        nodes = [n.strip() for n in pair.split(',') if n.strip()]
+        if not nodes:
+            continue
+        if len(nodes) != 2:
+            print(f"  ! Ignored '{pair.strip()}': a road must have exactly 2 nodes.")
+        elif frozenset(nodes) not in existing:
+            print(f"  ! Ignored '{pair.strip()}': no such road in the network.")
+        else:
+            blocked.append((nodes[0], nodes[1]))
+    return blocked
+
+
+def print_result(res):
+    print("\n✓ Route Calculated Successfully!")
+    print(f" • Algorithm Used       : {res['algorithm']}   | Traffic: {res['traffic_condition']}")
+    mode = 'automatic (lowest travel time)' if res['auto_selected'] else 'manual'
+    print(f" • Selected Hospital    : {res['selected_hospital']}  [{mode}]")
+    print(f" • Route 1 (Ambulance -> Emergency): {' -> '.join(res['phase1']['path'])}")
+    print(f"      {res['phase1']['distance_km']} km, {res['phase1']['time_min']} min, "
+          f"{res['phase1']['expanded_nodes']} expanded nodes")
+    print(f" • Route 2 (Emergency -> Hospital) : {' -> '.join(res['phase2']['path'])}")
+    print(f"      {res['phase2']['distance_km']} km, {res['phase2']['time_min']} min, "
+          f"{res['phase2']['expanded_nodes']} expanded nodes")
+    print(f" • Total Distance       : {res['total_distance_km']} km")
+    print(f" • Total Response Time  : {res['total_time_min']} min")
+    print(f" • Expanded Nodes       : {res['total_expanded_nodes']} (+{res['selection_expanded_nodes']} for hospital selection)")
+    print(f" • Execution Time       : {res['total_execution_time_ms']} ms")
+    if res['auto_selected']:
+        print(" • Hospital comparison  : " + " | ".join(
+            f"{h['hospital']}={h['time_min']}min/{h['distance_km']}km" for h in res['hospital_evaluation']))
+
+
 def custom_route_cli():
     print("\n--- [Custom Emergency Route Input] ---")
-    
-    print("Select Search Algorithm:")
-    print("1. A* Search (Recommended)")
-    print("2. Uniform Cost Search (UCS)")
-    print("3. Breadth-First Search (BFS)")
-    algo_choice = input("Enter choice (1-3) [Default: 1]: ").strip()
-    algo_map = {'1': 'A*', '2': 'UCS', '3': 'BFS'}
-    algo = algo_map.get(algo_choice, 'A*')
+    start = ask_node("Ambulance starting location", 'Ambulance_Base')
+    site = ask_node("Emergency location", 'Emergency_Site')
+    hosp = ask_choice("Hospital selection:", ['Automatic (lowest travel time)'] + AVAILABLE_HOSPITALS, 0)
+    hosp = None if hosp.startswith('Automatic') else hosp
+    algo = ask_choice("Search Algorithm:", ['A*', 'UCS', 'BFS'], 0)
+    traffic = ask_choice("Traffic Condition:", list(TRAFFIC_MULTIPLIERS), 1)
+    raw = input("\nBlocked road(s) 'NodeA,NodeB; NodeC,NodeD' (empty = none): ").strip()
+    blocked = parse_blocked(raw) if raw else []
 
-    print("\nSelect Traffic Condition:")
-    print("1. Low")
-    print("2. Medium")
-    print("3. Heavy")
-    traffic_choice = input("Enter choice (1-3) [Default: 2]: ").strip()
-    traffic_map = {'1': 'Low', '2': 'Medium', '3': 'Heavy'}
-    traffic = traffic_map.get(traffic_choice, 'Medium')
+    print(f"\nCalculating route using ({algo}) under ({traffic}) traffic...")
+    try:
+        res = solve_emergency_routing(start, site, hosp, traffic, algo, blocked)
+    except RoutingInputError as e:
+        print(f"✕ Invalid input: {e}")
+        return
+    print_result(res) if res['success'] else print(f"✕ Error: {res['message']}")
 
-    block_input = input("\nEnter blocked road edge(s) separated by ';' (e.g. Node_3,Emergency_Site; Node_1,Node_2 or leave empty): ").strip()
-    blocked_roads = []
-    if block_input:
-        road_pairs = block_input.split(';')
-        for pair in road_pairs:
-            nodes = [n.strip() for n in pair.split(',') if n.strip()]
-            if len(nodes) == 2:
-                blocked_roads.append((nodes[0], nodes[1]))
-            elif len(nodes) > 2:
-                print(f"⚠️ Warning: Ignored invalid road segment '{pair}'. A road edge must contain exactly 2 nodes.")
 
-    print(f"\nCalculating route using ({algo}) under ({traffic}) traffic condition...\n")
-    
-    res = solve_emergency_routing(
-        traffic_condition=traffic,
-        algorithm=algo,
-        blocked_roads=blocked_roads
-    )
+def hospital_analysis_cli():
+    print("\n--- [Nearest Distance vs. Fastest Time Analysis] ---")
+    traffic = ask_choice("Traffic Condition:", list(TRAFFIC_MULTIPLIERS), 2)
+    comp = compare_nearest_vs_fastest_hospital(traffic_condition=traffic)
+    if not comp:
+        print("No hospital reachable.")
+        return
+    print(f"\nTraffic Condition: {traffic}")
+    for h in comp['evaluated_hospitals']:
+        print(f"  • {h['hospital']:<11} shortest {h['min_distance_km']:>5} km | fastest {h['travel_time_min']:>6} min via {h['path']}")
+    n, f = comp['nearest_by_distance'], comp['fastest_by_time']
+    print(f" • Nearest by distance : {n['hospital']} ({n['distance_km']} km, {n['time_min']} min on that route)")
+    print(f" • Fastest by time     : {f['hospital']} ({f['travel_time_min']} min)")
+    print(f" • Identical?          : {'Yes' if comp['are_identical'] else 'No - congestion makes the nearest hospital slower'}")
 
-    if res['success']:
-        print("✓ Route Calculated Successfully!")
-        print(f" • Algorithm Used    : {res['algorithm']}")
-        print(f" • Selected Hospital : {res['selected_hospital']}")
-        print(f" • Phase 1 Path      : {' -> '.join(res['phase1']['path'])}")
-        print(f" • Phase 2 Path      : {' -> '.join(res['phase2']['path'])}")
-        print(f" • Total Distance    : {res['total_distance_km']} km")
-        print(f" • Total Time        : {res['total_time_min']} min")
-        print(f" • Expanded Nodes    : {res['total_expanded_nodes']} nodes")
-        print(f" • Execution Time    : {res['total_execution_time_ms']} ms")
-    else:
-        print(f"✕ Error: {res['message']}")
 
 def main():
     while True:
         display_menu()
         choice = input("Select an option (1-5): ").strip()
-
         if choice == '1':
             run_all_test_scenarios()
         elif choice == '2':
             custom_route_cli()
         elif choice == '3':
-            print("\n--- [Nearest Distance vs. Fastest Time Analysis] ---")
-            traffic = input("Select traffic condition (Low / Medium / Heavy) [Default: Heavy]: ").strip() or 'Heavy'
-            comp = compare_nearest_vs_fastest_hospital(traffic_condition=traffic)
-            if comp:
-                print(f"\nTraffic Condition: {traffic}")
-                print(f" • Nearest Hospital (Distance) : {comp['nearest_by_distance']['hospital']} ({comp['nearest_by_distance']['distance_km']} km)")
-                print(f" • Fastest Hospital (Time)     : {comp['fastest_by_time']['hospital']} ({comp['fastest_by_time']['travel_time_min']} min)")
-                print(f" • Are Identical?              : {'Yes' if comp['are_identical'] else 'No (Fastest route uses emergency lanes or clearer roads)'}")
+            hospital_analysis_cli()
         elif choice == '4':
-            print("\n--- [Registered Graph Network Nodes] ---")
-            print("Available Hospitals:", ", ".join(AVAILABLE_HOSPITALS))
-            print("Network Node Coordinates (X, Y):")
+            print("\nAvailable Hospitals:", ", ".join(AVAILABLE_HOSPITALS))
+            print(f"\nNodes ({len(NODES_COORDINATES)}):")
             for node, coords in NODES_COORDINATES.items():
                 print(f"  • {node:<15}: {coords}")
+            print(f"\nRoads ({len(ROADS_NETWORK)}):  A <-> B (km, km/h, priority lane)")
+            for u, v, d, s, e in ROADS_NETWORK:
+                print(f"  • {u} <-> {v} ({d} km, {s} km/h{', PRIORITY' if e else ''})")
         elif choice == '5':
-            print("\nExiting System. Good luck with your project evaluation!")
+            print("\nExiting System.")
             break
         else:
             print("\nInvalid choice. Please try again.")
 
+
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except (EOFError, KeyboardInterrupt):
+        print("\nExiting System.")

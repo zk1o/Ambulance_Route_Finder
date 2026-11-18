@@ -51,7 +51,22 @@ ROADS_NETWORK = [
     ('Node_10', 'Node_11', 4.5, 50, False)
 ]
 
-# 3. معملات المرور
+# 3. حساسية كل طريق للزحمة (الافتراضي 1.0)
+#    عامل الزحمة الفعلي للطريق = 1 + (معامل_المرور - 1) × الحساسية
+#    - طرق وسط المدينة (Downtown) حساسة جداً للزحمة
+#    - مسارات الطوارئ (Priority lanes) أقل تأثراً بالزحمة
+#    هذا يجعل الطريق الأقصر مسافةً ليس دائماً الأسرع زمناً، ويجعل الزحمة تغيّر المسار فعلاً
+CONGESTION_SENSITIVITY = {
+    frozenset(('Node_4', 'Emergency_Site')): 3.0,
+    frozenset(('Node_4', 'Hospital_A')): 3.0,
+    frozenset(('Node_3', 'Node_4')): 2.0,
+    frozenset(('Node_8', 'Hospital_B')): 0.0,   # مسار طوارئ مخصص: لا يتأثر بالزحمة
+    frozenset(('Node_3', 'Emergency_Site')): 0.3,
+    frozenset(('Emergency_Site', 'Node_15')): 0.3,
+}
+EMERGENCY_TIME_FACTOR = 0.7  # خصم 30% من زمن مسارات الطوارئ
+
+# 4. معملات المرور
 TRAFFIC_MULTIPLIERS = {
     'Low': 1.0,
     'Medium': 1.5,

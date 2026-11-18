@@ -4,25 +4,44 @@ import sys
 
 # إضافة المجلد الرئيسي للمسار لضمان استيراد data
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from data.network_data import NODES_COORDINATES, ROADS_NETWORK, TRAFFIC_MULTIPLIERS
+from data.network_data import (NODES_COORDINATES, ROADS_NETWORK, TRAFFIC_MULTIPLIERS,
+                               CONGESTION_SENSITIVITY, EMERGENCY_TIME_FACTOR)
 
-def calculate_heuristic(current_node, goal_node, max_speed_kmh=100.0):
+def _euclid(a, b):
+    (x1, y1), (x2, y2) = NODES_COORDINATES[a], NODES_COORDINATES[b]
+    return math.hypot(x1 - x2, y1 - y2)
+
+
+def edge_travel_time(u, v, distance, base_speed, is_emergency_lane, traffic_condition):
+    """زمن السفر بالدقائق لطريق واحد مع الزحمة وخصم الطوارئ"""
+    mult = TRAFFIC_MULTIPLIERS.get(traffic_condition, 1.0)
+    sensitivity = CONGESTION_SENSITIVITY.get(frozenset((u, v)), 1.0)
+    traffic_factor = 1.0 + (mult - 1.0) * sensitivity
+    discount = EMERGENCY_TIME_FACTOR if is_emergency_lane else 1.0
+    return (distance / base_speed) * 60.0 * traffic_factor * discount
+
+
+def _max_effective_speed():
+    """أعلى سرعة فعلية (وحدة إحداثيات / دقيقة) في الشبكة تحت أفضل الظروف (Low).
+    الزحمة لا تقلل الزمن أبداً (العامل >= 1) فهذه الحدّ الأعلى لكل الحالات."""
+    best = 0.0
+    for u, v, dist, speed, emerg in ROADS_NETWORK:
+        t = edge_travel_time(u, v, dist, speed, emerg, 'Low')
+        best = max(best, _euclid(u, v) / t)
+    return best
+
+MAX_SPEED = _max_effective_speed()
+
+
+def calculate_heuristic(current_node, goal_node):
     """
-    حساب الدالة الحدسية المقبولة (Admissible Heuristic) لحجم A*
-    باستخدام المسافة المستقيمة (Euclidean Distance) مقسومة على أقصى سرعة مسموحة
+    Admissible heuristic: h(n) = EuclideanDistance(n, goal) / MAX_SPEED
+    MAX_SPEED محسوبة من بيانات الشبكة نفسها، فلا يمكن أن يتجاوز h التكلفة الحقيقية
+    (الطريق لا يمكن أن يكون أسرع من أسرع طريق في الشبكة، ولا أقصر من الخط المستقيم).
     """
     if current_node not in NODES_COORDINATES or goal_node not in NODES_COORDINATES:
         return 0.0
-    
-    x1, y1 = NODES_COORDINATES[current_node]
-    x2, y2 = NODES_COORDINATES[goal_node]
-    
-    # حساب المسافة المستقيمة بالـ كم
-    straight_distance = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
-    
-    # تحويل المسافة إلى زمن بالدقائق
-    estimated_time_minutes = (straight_distance / max_speed_kmh) * 60.0
-    return estimated_time_minutes
+    return _euclid(current_node, goal_node) / MAX_SPEED
 
 def build_graph(blocked_roads=None, traffic_condition='Low'):
     """
@@ -33,17 +52,13 @@ def build_graph(blocked_roads=None, traffic_condition='Low'):
         blocked_roads = []
         
     graph = {}
-    traffic_factor = TRAFFIC_MULTIPLIERS.get(traffic_condition, 1.0)
-    
     for u, v, distance, base_speed, is_emergency_lane in ROADS_NETWORK:
         # التحقق مما إذا كان الطريق مسدوداً
         if (u, v) in blocked_roads or (v, u) in blocked_roads:
             continue
             
-        # حساب خصائص السفر
-        # خصم 30% لزمن السفر إذا كان مسار طوارئ مخصص
-        emergency_discount = 0.7 if is_emergency_lane else 1.0
-        travel_time = (distance / base_speed) * 60.0 * traffic_factor * emergency_discount
+        # زمن السفر = الزحمة (حسب حساسية الطريق) + خصم مسار الطوارئ
+        travel_time = edge_travel_time(u, v, distance, base_speed, is_emergency_lane, traffic_condition)
         
         if u not in graph: graph[u] = []
         if v not in graph: graph[v] = []

@@ -1,5 +1,6 @@
 import heapq
 import time
+from collections import deque
 from src.utils import calculate_heuristic
 
 def bfs_search(graph, start, goal):
@@ -10,11 +11,11 @@ def bfs_search(graph, start, goal):
     start_time = time.perf_counter()
     expanded_nodes = 0
     
-    queue = [(start, [start], 0.0, 0.0)] # (العقدة الحالية, المسار, المسافة التراكمية, الزمن التراكمي)
+    queue = deque([(start, [start], 0.0, 0.0)]) # (العقدة الحالية, المسار, المسافة التراكمية, الزمن التراكمي)
     visited = set()
     
     while queue:
-        curr, path, total_dist, total_time = queue.pop(0)
+        curr, path, total_dist, total_time = queue.popleft()
         
         if curr in visited:
             continue
@@ -110,3 +111,26 @@ def a_star_search(graph, start, goal):
             
     execution_time = (time.perf_counter() - start_time) * 1000
     return None, 0, 0, expanded_nodes, execution_time
+
+
+def shortest_distance_search(graph, start, goal):
+    """
+    UCS يقلل المسافة (km) بدل الزمن — يُستخدم فقط لإيجاد "أقرب مستشفى بالمسافة"
+    في التحليل المقارن. يعيد (path, distance_km, time_min, expanded, exec_ms).
+    """
+    t0 = time.perf_counter()
+    expanded = 0
+    pq = [(0.0, start, [start], 0.0)]  # (distance, node, path, time)
+    best = {}
+    while pq:
+        d, curr, path, t = heapq.heappop(pq)
+        if curr in best:
+            continue
+        best[curr] = d
+        expanded += 1
+        if curr == goal:
+            return path, d, t, expanded, (time.perf_counter() - t0) * 1000
+        for e in graph.get(curr, []):
+            if e['neighbor'] not in best:
+                heapq.heappush(pq, (d + e['distance'], e['neighbor'], path + [e['neighbor']], t + e['time']))
+    return None, 0, 0, expanded, (time.perf_counter() - t0) * 1000
